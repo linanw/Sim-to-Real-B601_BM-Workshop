@@ -64,7 +64,7 @@ For **Ada** architecture GPUs:
 ./docker/real/build.sh ada
 ```
 
-5. Continue with the course instructions [here](https://docs.nvidia.com/learning/physical-ai/sim-to-real-so-101/latest/datasets-and-models.html).
+5. Continue with the course instructions [here](https://docs.nvidia.com/learning/physical-ai/sim-to-real-so-101/latest/index.html).
 
 ### Starting the images
 
@@ -117,8 +117,7 @@ docker run -it --rm --name real-robot --network host --privileged --gpus all \
 
 First, [install the HuggingFace command-line-interface (CLI)](https://huggingface.co/docs/huggingface_hub/en/guides/cli#command-line-interface-cli)
 
-The models used in the course are listed in the course instructions [here](https://docs.nvidia.com/learning/physical-ai/sim-to-real-so-101/datasets-and-models.html).
-
+The models used in the course are listed in the course instructions [here](https://docs.nvidia.com/learning/physical-ai/sim-to-real-so-101/latest/datasets-and-models.html).
 
 You can either download them ahead of time, or as you get to them in the course.
 
