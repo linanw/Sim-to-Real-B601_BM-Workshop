@@ -1,7 +1,7 @@
 export LEROBOT_CALIB=.cache/huggingface/lerobot/calibration
-export TELEOP_PORT=/dev/ttyACM1
+export TELEOP_PORT=/dev/ttyUSB0
 export ROBOT_PORT=/dev/ttyACM0
-export TELEOP_ID=orange_teleop
-export ROBOT_ID=orange_robot
+export TELEOP_ID=stararm102_teleop
+export ROBOT_ID=b601-bm_robot
 export CAMERA_GRIPPER=0
 export CAMERA_EXTERNAL=4

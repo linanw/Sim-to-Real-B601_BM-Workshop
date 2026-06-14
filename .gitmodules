@@ -1,0 +1,12 @@
+[submodule "rebot/lerobot"]
+	path = rebot/lerobot
+	url = https://github.com/Seeed-Projects/lerobot.git
+[submodule "rebot/lerobot-robot-seeed-b601"]
+	path = rebot/lerobot-robot-seeed-b601
+	url = git@github.com:Seeed-Projects/lerobot-robot-seeed-b601.git
+[submodule "rebot/Star-Arm-102"]
+	path = rebot/Star-Arm-102
+	url = https://github.com/servodevelop/Star-Arm-102
+[submodule "rebot/reBotArmController_ROS2"]
+	path = rebot/reBotArmController_ROS2
+	url = https://github.com/Seeed-Projects/reBotArmController_ROS2.git
