@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import json
 import os
 from sim_to_real_so101.utils.isaacsim_preflight import guard_known_bad_isaacsim_driver
 
@@ -43,6 +44,24 @@ parser.add_argument(
     type=str,
     default=os.getenv("TELEOP_ID", "leader_arm_1"),
     help="ID of the robot.",
+)
+parser.add_argument(
+    "--leader_type",
+    type=str,
+    default=os.getenv("TELEOP_TYPE", "so101"),
+    help="Leader arm type: so101 or stararm102.",
+)
+parser.add_argument(
+    "--follower_type",
+    type=str,
+    default=os.getenv("ROBOT_TYPE", "so101_follower"),
+    help="Follower robot type to store in dataset metadata.",
+)
+parser.add_argument(
+    "--leader_joint_aliases",
+    type=str,
+    default=os.getenv("TELEOP_JOINT_ALIASES", None),
+    help="JSON mapping from sim joint names to leader joint names.",
 )
 parser.add_argument(
     "--repo_id", type=str, default=None, help="Repository ID to store the dataset."
@@ -100,6 +119,11 @@ from sim_to_real_so101.utils.lerobot_recorder import LeRobotRecorder
 def main():
 
     keyboard_control = KeyboardControl()
+    leader_joint_aliases = (
+        json.loads(args_cli.leader_joint_aliases)
+        if args_cli.leader_joint_aliases
+        else None
+    )
 
     # parse configuration
     env_cfg = parse_env_cfg(
@@ -141,6 +165,8 @@ def main():
         cameras=cameras,
         fps=30,
         kind="leader",
+        robot_type=args_cli.leader_type,
+        joint_aliases=leader_joint_aliases,
     )
     robot_iface.init_device()
     robot_iface.connect()
@@ -167,6 +193,8 @@ def main():
             save_mp4=args_cli.save_mp4,
             depth=args_cli.depth,
             instance_id_seg=args_cli.instance_id_seg,
+            robot_type=args_cli.follower_type,
+            action_names=robot_iface.SO101_JOINT_ORDER,
         )
         try:
             recorder.init_dataset()

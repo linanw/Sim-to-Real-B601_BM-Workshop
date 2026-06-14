@@ -16,5 +16,11 @@ WRAPPER
 chmod +x /usr/local/bin/python
 
 python -m pip install -e /workspace/Sim-to-Real-SO-101-Workshop/source/sim_to_real_so101/
+if [ -d /workspace/Sim-to-Real-SO-101-Workshop/rebot/Star-Arm-102/Lerobot/lerobot-teleoperator-stararm102 ]; then
+  python -m pip install --no-deps -e /workspace/Sim-to-Real-SO-101-Workshop/rebot/Star-Arm-102/Lerobot/lerobot-teleoperator-stararm102
+fi
+if [ -d /workspace/Sim-to-Real-SO-101-Workshop/rebot/lerobot-robot-seeed-b601 ]; then
+  python -m pip install --no-deps -e /workspace/Sim-to-Real-SO-101-Workshop/rebot/lerobot-robot-seeed-b601
+fi
 
 exec "$@"

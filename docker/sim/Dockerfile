@@ -35,6 +35,10 @@ RUN $PYTHON -m pip install -c /tmp/constraints.txt \
     "jsonlines>=4.0.0,<5.0.0" \
     "pynput>=1.7.7,<1.9.0" \
     "pyserial>=3.5,<4.0" \
+    "python-can>=4.2.0,<5.0.0" \
+    "motorbridge>=0.4.4" \
+    "lerobot-motor-starai" \
+    "fashionstar-uart-sdk>=1.3.6" \
     "wandb>=0.20.0,<0.22.0" \
     "torchcodec>=0.2.1,<0.6.0" \
     "draccus==0.10.0" \
@@ -70,4 +74,3 @@ ENV PYTHONPYCACHEPREFIX=/tmp/pycache
 RUN cat docker/utils.sh >> /root/.bashrc
 ENTRYPOINT ["/workspace/Sim-to-Real-SO-101-Workshop/docker/sim/entrypoint.sh"]
 CMD ["bash"]
-

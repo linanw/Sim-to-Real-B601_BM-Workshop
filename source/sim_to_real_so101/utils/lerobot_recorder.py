@@ -44,6 +44,8 @@ class LeRobotRecorder:
         save_mp4: bool = False,
         depth: bool = False, # not saved in lerobot dataset
         instance_id_seg: bool = False, # not saved in lerobot dataset
+        robot_type: str = "so101_follower",
+        action_names: list[str] | None = None,
     ):
 
         self.fps = fps
@@ -58,20 +60,22 @@ class LeRobotRecorder:
             "shape": (0, 0, 3),
             "names": ["height", "width", "channels"],
         }
+        self.action_names = action_names or [
+            "shoulder_pan.pos",
+            "shoulder_lift.pos",
+            "elbow_flex.pos",
+            "wrist_flex.pos",
+            "wrist_roll.pos",
+            "gripper.pos",
+        ]
+        self.robot_type = robot_type
 
         self.FOLLOWER_OBS_FEATURES = {
             "observation.state": {
                 "dtype": "float32",
                 "fps": self.fps,
-                "shape": (6,),
-                "names": [
-                    "shoulder_pan.pos",
-                    "shoulder_lift.pos",
-                    "elbow_flex.pos",
-                    "wrist_flex.pos",
-                    "wrist_roll.pos",
-                    "gripper.pos",
-                ],
+                "shape": (len(self.action_names),),
+                "names": self.action_names,
             }
         }
 
@@ -93,27 +97,13 @@ class LeRobotRecorder:
         self.LEADER_ACTION_FEATURES = {
             "action": {
                 "dtype": "float32",
-                "shape": (6,),
+                "shape": (len(self.action_names),),
                 "fps": self.fps,
-                "names": [
-                    "shoulder_pan.pos",
-                    "shoulder_lift.pos",
-                    "elbow_flex.pos",
-                    "wrist_flex.pos",
-                    "wrist_roll.pos",
-                    "gripper.pos",
-                ],
+                "names": self.action_names,
             }
         }
 
-        self.SO101_ACTION_NAMES = [
-            "shoulder_pan.pos",
-            "shoulder_lift.pos",
-            "elbow_flex.pos",
-            "wrist_flex.pos",
-            "wrist_roll.pos",
-            "gripper.pos",
-        ]
+        self.SO101_ACTION_NAMES = self.action_names
 
         self.repo_id = repo_id
         self.dataset_root = dataset_root
@@ -185,17 +175,17 @@ class LeRobotRecorder:
             fps=self.fps,
             features=self.dataset_features,
             root=self.dataset_root,
-            robot_type="so101_follower",
+            robot_type=self.robot_type,
         )
 
         print(f"[INFO]: New dataset initialized - {self.dataset.root}")
 
     def allocate_buffers(self):
         self.action_buffers_tensor = torch.zeros(
-            (self.capcity, 6), dtype=torch.float32, device=self.device
+            (self.capcity, len(self.action_names)), dtype=torch.float32, device=self.device
         )
         self.observation_buffer_tensor = torch.zeros(
-            (self.capcity, 6), dtype=torch.float32, device=self.device
+            (self.capcity, len(self.action_names)), dtype=torch.float32, device=self.device
         )
 
         for camera_name in self.cameras.keys():

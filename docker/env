@@ -1,6 +1,9 @@
 export LEROBOT_CALIB=.cache/huggingface/lerobot/calibration
 export TELEOP_PORT=/dev/ttyUSB0
 export ROBOT_PORT=/dev/ttyACM0
+export TELEOP_TYPE=stararm102
+export ROBOT_TYPE=seeed_b601_dm_follower
+export ROBOT_CAN_ADAPTER=damiao
 export TELEOP_ID=stararm102_teleop
 export ROBOT_ID=b601-bm_robot
 export CAMERA_GRIPPER=0

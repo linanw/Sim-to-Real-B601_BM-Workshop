@@ -62,6 +62,49 @@ class LeRobotSO101Interface:
         "gripper.pos",
     ]
 
+    ROBOT_TYPE_ALIASES = {
+        "so101": "so101",
+        "so101_leader": "so101",
+        "so101_follower": "so101",
+        "stararm102": "stararm102",
+        "stararm102_leader": "stararm102",
+        "lerobot_teleoperator_stararm102": "stararm102",
+        "b601": "seeed_b601_dm",
+        "b601_dm": "seeed_b601_dm",
+        "seeed_b601_dm": "seeed_b601_dm",
+        "seeed_b601_dm_follower": "seeed_b601_dm",
+    }
+
+    # Star-Arm-102 and B601 are 6-DOF + gripper arms. The current Isaac task
+    # still uses the SO-101 5-DOF + gripper articulation, so wrist_yaw is held
+    # neutral and Motor_5/wrist_roll is mapped onto the simulated wrist_roll.
+    DEFAULT_JOINT_ALIASES = {
+        "so101": {
+            "shoulder_pan.pos": "shoulder_pan.pos",
+            "shoulder_lift.pos": "shoulder_lift.pos",
+            "elbow_flex.pos": "elbow_flex.pos",
+            "wrist_flex.pos": "wrist_flex.pos",
+            "wrist_roll.pos": "wrist_roll.pos",
+            "gripper.pos": "gripper.pos",
+        },
+        "stararm102": {
+            "shoulder_pan.pos": "Motor_0.pos",
+            "shoulder_lift.pos": "Motor_1.pos",
+            "elbow_flex.pos": "Motor_2.pos",
+            "wrist_flex.pos": "Motor_3.pos",
+            "wrist_roll.pos": "Motor_5.pos",
+            "gripper.pos": "gripper.pos",
+        },
+        "seeed_b601_dm": {
+            "shoulder_pan.pos": "shoulder_pan.pos",
+            "shoulder_lift.pos": "shoulder_lift.pos",
+            "elbow_flex.pos": "elbow_flex.pos",
+            "wrist_flex.pos": "wrist_flex.pos",
+            "wrist_roll.pos": "wrist_roll.pos",
+            "gripper.pos": "gripper.pos",
+        },
+    }
+
     def __init__(
         self,
         device: str,
@@ -71,6 +114,10 @@ class LeRobotSO101Interface:
         fps: int,
         kind: str = "leader",
         rename_map: dict = None,
+        robot_type: str = "so101",
+        joint_aliases: dict | None = None,
+        can_adapter: str = "damiao",
+        use_degrees: bool = False,
     ):
 
         self.port = port
@@ -80,6 +127,13 @@ class LeRobotSO101Interface:
         self.fps = fps
         self.kind = kind
         self.rename_map = rename_map
+        self.robot_type = self._canonical_robot_type(robot_type)
+        self.joint_aliases = {
+            **self.DEFAULT_JOINT_ALIASES[self.robot_type],
+            **(joint_aliases or {}),
+        }
+        self.can_adapter = can_adapter
+        self.use_degrees = use_degrees
 
         self.joint_names = [joint.split(".")[0] for joint in self.SO101_JOINT_ORDER]
         self.joint_mins = torch.tensor(
@@ -92,6 +146,14 @@ class LeRobotSO101Interface:
             dtype=torch.float32,
             device=self.device,
         )
+
+    @classmethod
+    def _canonical_robot_type(cls, robot_type: str) -> str:
+        canonical = cls.ROBOT_TYPE_ALIASES.get(robot_type)
+        if canonical is None:
+            supported = ", ".join(sorted(cls.ROBOT_TYPE_ALIASES))
+            raise ValueError(f"Unsupported robot_type '{robot_type}'. Supported values: {supported}")
+        return canonical
 
     def make_cameras_cfg(self):
         cameras = {}
@@ -111,10 +173,44 @@ class LeRobotSO101Interface:
 
     def make_cfg(self):
         if self.kind == "leader":
-            return SO101LeaderConfig(port=self.port, id=self.id)
+            if self.robot_type == "so101":
+                return SO101LeaderConfig(port=self.port, id=self.id)
+            if self.robot_type == "stararm102":
+                try:
+                    from lerobot_teleoperator_stararm102 import Stararm102LeaderConfig
+                except ImportError as exc:
+                    raise ImportError(
+                        "Star-Arm-102 support is not installed. Install "
+                        "rebot/Star-Arm-102/Lerobot/lerobot-teleoperator-stararm102 "
+                        "inside the sim container."
+                    ) from exc
+
+                return Stararm102LeaderConfig(
+                    port=self.port,
+                    id=self.id,
+                    use_degrees=self.use_degrees,
+                )
+            raise ValueError(f"Robot type '{self.robot_type}' cannot be used as a leader")
         elif self.kind == "follower":
             cameras = self.make_cameras_cfg()
-            return SO101FollowerConfig(port=self.port, id=self.id, cameras=cameras)
+            if self.robot_type == "so101":
+                return SO101FollowerConfig(port=self.port, id=self.id, cameras=cameras)
+            if self.robot_type == "seeed_b601_dm":
+                try:
+                    from lerobot_robot_seeed_b601 import SeeedB601DMFollowerConfig
+                except ImportError as exc:
+                    raise ImportError(
+                        "Seeed B601 support is not installed. Install "
+                        "rebot/lerobot-robot-seeed-b601 inside the sim container."
+                    ) from exc
+
+                return SeeedB601DMFollowerConfig(
+                    port=self.port,
+                    id=self.id,
+                    can_adapter=self.can_adapter,
+                    cameras=cameras,
+                )
+            raise ValueError(f"Robot type '{self.robot_type}' cannot be used as a follower")
 
     def init_device(self, visualize: bool = False):
         self.cfg = self.make_cfg()
@@ -124,14 +220,28 @@ class LeRobotSO101Interface:
         if visualize:
             init_rerun(session_name=random_session_name)
 
-        print(f"[INFO]: Connected to the Arm at {self.port} with id {self.id}")
+        print(f"[INFO]: Initialized {self.robot_type} {self.kind} at {self.port} with id {self.id}")
 
     def connect(self):
         self.robot.connect()
 
     def get_raw_actions_tensor(self, real_action):
+        values = []
+        missing = []
+        for sim_joint in self.SO101_JOINT_ORDER:
+            hardware_joint = self.joint_aliases[sim_joint]
+            if hardware_joint not in real_action:
+                missing.append(hardware_joint)
+                continue
+            values.append(real_action[hardware_joint])
+        if missing:
+            available = ", ".join(sorted(real_action))
+            raise KeyError(
+                f"Missing joint(s) from {self.robot_type} action: {missing}. "
+                f"Available joints: {available}"
+            )
         return torch.tensor(
-            [real_action[joint] for joint in self.SO101_JOINT_ORDER],
+            values,
             dtype=torch.float32,
             device=self.device,
         )
@@ -224,12 +334,10 @@ class LeRobotSO101Interface:
         state_np = state.cpu().numpy()
 
         sim_observation = {}
-        sim_observation["shoulder_pan.pos"] = state_np[0]
-        sim_observation["shoulder_lift.pos"] = state_np[1]
-        sim_observation["elbow_flex.pos"] = state_np[2]
-        sim_observation["wrist_flex.pos"] = state_np[3]
-        sim_observation["wrist_roll.pos"] = state_np[4]
-        sim_observation["gripper.pos"] = state_np[5]
+        for index, joint_name in enumerate(self.SO101_JOINT_ORDER):
+            sim_observation[self.joint_aliases[joint_name]] = state_np[index]
+        if self.robot_type == "seeed_b601_dm":
+            sim_observation["wrist_yaw.pos"] = 0.0
 
         for camera in self.cameras.keys():
             img: torch.Tensor = (

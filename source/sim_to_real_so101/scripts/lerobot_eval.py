@@ -14,6 +14,7 @@
 # limitations under the License.
 import argparse
 import json
+import os
 import random
 from tqdm import tqdm
 from sim_to_real_so101.utils.isaacsim_preflight import guard_known_bad_isaacsim_driver
@@ -48,6 +49,20 @@ parser.add_argument(
 )
 parser.add_argument("--policy_host", type=str, default="localhost", help="GR00T policy server host")
 parser.add_argument("--policy_port", type=int, default=5555, help="GR00T policy server port")
+parser.add_argument("--robot_port", type=str, default=os.getenv("ROBOT_PORT", None), help="Follower robot port")
+parser.add_argument("--robot_id", type=str, default=os.getenv("ROBOT_ID", "follower_arm_1"), help="Follower robot ID")
+parser.add_argument(
+    "--follower_type",
+    type=str,
+    default=os.getenv("ROBOT_TYPE", "so101"),
+    help="Follower robot type: so101 or seeed_b601_dm_follower.",
+)
+parser.add_argument(
+    "--follower_can_adapter",
+    type=str,
+    default=os.getenv("ROBOT_CAN_ADAPTER", "damiao"),
+    help="B601 CAN adapter type: damiao or socketcan.",
+)
 parser.add_argument("--action_horizon", type=int, default=16, help="Number of action steps to execute per server query")
 parser.add_argument(
     "--lang_instruction",
@@ -133,12 +148,14 @@ def main():
     rename_map = json.loads(args_cli.rename_map) if args_cli.rename_map else None
     robot_iface = LeRobotSO101Interface(
         device=env.unwrapped.device,
-        port=None,
-        id="leader_arm_1",
+        port=args_cli.robot_port,
+        id=args_cli.robot_id,
         cameras=cameras,
         fps=30,
         kind="follower",
         rename_map=rename_map,
+        robot_type=args_cli.follower_type,
+        can_adapter=args_cli.follower_can_adapter,
     )
     print(f"[INFO]: Initializing device with Rerun visualization: {args_cli.rerun}")
     robot_iface.init_device(visualize=args_cli.rerun)
