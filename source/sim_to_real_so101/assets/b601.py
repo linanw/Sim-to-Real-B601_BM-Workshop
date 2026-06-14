@@ -109,14 +109,14 @@ B601_DM_CFG = ArticulationCfg(
             "gripper_joint2": 0.0,
         },
         pos=(-0.05, 0.0, 0),
-        rot=euler_angles_to_quat(np.array([0, 0, 90]), degrees=True),
+        rot=euler_angles_to_quat(np.array([0, 0, -90]), degrees=True),
     ),
     actuators={
         "shoulder_pan": ImplicitActuatorCfg(
             joint_names_expr=["joint1"],
-            effort_limit_sim=27,
-            stiffness=55,
-            damping=0.7,
+            effort_limit_sim=60,
+            stiffness=100,
+            damping=1.0,
         ),
         "shoulder_lift": ImplicitActuatorCfg(
             joint_names_expr=["joint2"],

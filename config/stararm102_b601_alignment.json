@@ -1,7 +1,7 @@
 {
   "joints": {
     "shoulder_pan": {
-      "scale": -1.0,
+      "scale": -1.35,
       "offset_deg": 0.0
     },
     "shoulder_lift": {
