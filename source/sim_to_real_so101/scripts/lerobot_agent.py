@@ -14,6 +14,10 @@
 # limitations under the License.
 import argparse
 import os
+from sim_to_real_so101.utils.isaacsim_preflight import guard_known_bad_isaacsim_driver
+
+guard_known_bad_isaacsim_driver()
+
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
