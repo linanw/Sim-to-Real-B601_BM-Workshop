@@ -40,6 +40,12 @@ parser.add_argument(
     help="Port of the robot.",
 )
 parser.add_argument(
+    "--port_glob",
+    type=str,
+    default=os.getenv("TELEOP_PORT_GLOB", None),
+    help="Glob used to rediscover the leader if its /dev/ttyUSB* path changes.",
+)
+parser.add_argument(
     "--robot_id",
     type=str,
     default=os.getenv("TELEOP_ID", "leader_arm_1"),
@@ -167,6 +173,7 @@ def main():
         kind="leader",
         robot_type=args_cli.leader_type,
         joint_aliases=leader_joint_aliases,
+        port_glob=args_cli.port_glob,
     )
     robot_iface.init_device()
     robot_iface.connect()
@@ -206,7 +213,7 @@ def main():
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
-            real_action = robot_iface.robot.get_action()
+            real_action = robot_iface.get_action()
             real_action, mapped_action = robot_iface.real_to_sim_obs_processor(
                 real_action
             )

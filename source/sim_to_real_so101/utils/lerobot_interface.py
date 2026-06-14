@@ -13,7 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
+import time
 from collections import deque
+from glob import glob
 
 import numpy as np
 import torch
@@ -128,9 +131,12 @@ class LeRobotSO101Interface:
         joint_aliases: dict | None = None,
         can_adapter: str = "damiao",
         use_degrees: bool = False,
+        port_glob: str | None = None,
     ):
 
         self.port = port
+        self.requested_port = port
+        self.port_glob = port_glob
         self.id = id
         self.cameras = cameras
         self.device = device
@@ -187,6 +193,7 @@ class LeRobotSO101Interface:
                 return SO101LeaderConfig(port=self.port, id=self.id)
             if self.robot_type == "stararm102":
                 self._normalize_stararm102_calibration()
+                self.port = self._resolve_serial_port()
                 try:
                     from lerobot_teleoperator_stararm102 import Stararm102LeaderConfig
                 except ImportError as exc:
@@ -260,6 +267,75 @@ class LeRobotSO101Interface:
         print(f"[INFO]: Initialized {self.robot_type} {self.kind} at {self.port} with id {self.id}")
 
     def connect(self):
+        self.robot.connect()
+
+    def get_action(self):
+        if self.robot_type != "stararm102" or self.kind != "leader":
+            return self.robot.get_action()
+
+        last_error = None
+        for attempt in range(5):
+            try:
+                return self.robot.get_action()
+            except (OSError, IOError) as exc:
+                last_error = exc
+                print(
+                    f"[WARNING]: Star-Arm read failed ({exc}). "
+                    f"Reconnecting serial device, attempt {attempt + 1}/5..."
+                )
+                try:
+                    self._reconnect_stararm102()
+                except Exception as reconnect_exc:
+                    last_error = reconnect_exc
+                    print(f"[WARNING]: Star-Arm reconnect failed: {reconnect_exc}")
+                time.sleep(1.0)
+        raise last_error
+
+    def _resolve_serial_port(self) -> str:
+        patterns = []
+        if self.port_glob:
+            patterns.append(self.port_glob)
+        patterns.extend(
+            [
+                "/dev/serial/by-id/*",
+                "/dev/ttyUSB*",
+                "/dev/ttyACM*",
+            ]
+        )
+
+        requested_realpath = (
+            os.path.realpath(self.requested_port)
+            if self.requested_port and os.path.exists(self.requested_port)
+            else None
+        )
+        for pattern in patterns:
+            ports = sorted(glob(pattern))
+            if requested_realpath:
+                for port in ports:
+                    if os.path.realpath(port) == requested_realpath:
+                        if port != self.port:
+                            print(f"[INFO]: Resolved Star-Arm serial port: {port}")
+                        return port
+            if ports:
+                resolved = ports[0]
+                if resolved != self.port:
+                    print(f"[INFO]: Resolved Star-Arm serial port: {resolved}")
+                return resolved
+
+        if self.requested_port and os.path.exists(self.requested_port):
+            return self.requested_port
+        return self.requested_port or self.port
+
+    def _reconnect_stararm102(self) -> None:
+        try:
+            if getattr(self, "robot", None) is not None and self.robot.is_connected:
+                self.robot.disconnect()
+        except Exception:
+            pass
+
+        self.port = self._resolve_serial_port()
+        self.cfg = self.make_cfg()
+        self.robot = make_robot_from_config(self.cfg)
         self.robot.connect()
 
     def get_raw_actions_tensor(self, real_action):
