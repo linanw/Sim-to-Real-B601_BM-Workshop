@@ -137,6 +137,10 @@ class LeRobotSO101Interface:
         self.port = port
         self.requested_port = port
         self.port_glob = port_glob
+        self._last_valid_action = None
+        self._last_reconnect_attempt_at = 0.0
+        self._last_hold_warning_at = 0.0
+        self._reconnect_interval_s = 1.0
         self.id = id
         self.cameras = cameras
         self.device = device
@@ -273,23 +277,38 @@ class LeRobotSO101Interface:
         if self.robot_type != "stararm102" or self.kind != "leader":
             return self.robot.get_action()
 
-        last_error = None
-        for attempt in range(5):
-            try:
-                return self.robot.get_action()
-            except (OSError, IOError) as exc:
-                last_error = exc
-                print(
-                    f"[WARNING]: Star-Arm read failed ({exc}). "
-                    f"Reconnecting serial device, attempt {attempt + 1}/5..."
-                )
-                try:
-                    self._reconnect_stararm102()
-                except Exception as reconnect_exc:
-                    last_error = reconnect_exc
-                    print(f"[WARNING]: Star-Arm reconnect failed: {reconnect_exc}")
-                time.sleep(1.0)
-        raise last_error
+        try:
+            action = self.robot.get_action()
+            self._validate_stararm102_action(action)
+            self._last_valid_action = dict(action)
+            return action
+        except Exception as exc:
+            print(f"[WARNING]: Star-Arm read failed ({exc}).")
+            self._maybe_reconnect_stararm102()
+
+        if self._last_valid_action is not None:
+            now = time.monotonic()
+            if now - self._last_hold_warning_at >= 2.0:
+                print("[WARNING]: Holding last valid Star-Arm action until USB reconnects.")
+                self._last_hold_warning_at = now
+            return dict(self._last_valid_action)
+
+        raise RuntimeError("Star-Arm action is unavailable and no previous action exists.")
+
+    def _validate_stararm102_action(self, action) -> None:
+        if not isinstance(action, dict):
+            raise RuntimeError(f"Star-Arm returned invalid action type: {type(action)}")
+
+        required_joints = [
+            self.joint_aliases[sim_joint] for sim_joint in self.SO101_JOINT_ORDER
+        ]
+        missing = [joint for joint in required_joints if joint not in action]
+        invalid = [joint for joint in required_joints if action.get(joint) is None]
+        if missing or invalid:
+            raise RuntimeError(
+                f"Star-Arm returned incomplete action. Missing: {missing}; "
+                f"invalid values: {invalid}"
+            )
 
     def _resolve_serial_port(self) -> str:
         patterns = []
@@ -335,22 +354,42 @@ class LeRobotSO101Interface:
 
         self.port = self._resolve_serial_port()
         self.cfg = self.make_cfg()
-        self.robot = make_robot_from_config(self.cfg)
-        self.robot.connect()
+        robot = make_robot_from_config(self.cfg)
+        robot.connect()
+        self.robot = robot
+
+    def _maybe_reconnect_stararm102(self) -> None:
+        now = time.monotonic()
+        if now - self._last_reconnect_attempt_at < self._reconnect_interval_s:
+            return
+
+        self._last_reconnect_attempt_at = now
+        try:
+            self._reconnect_stararm102()
+            action = self.robot.get_action()
+            self._validate_stararm102_action(action)
+            self._last_valid_action = dict(action)
+        except Exception as reconnect_exc:
+            print(f"[WARNING]: Star-Arm reconnect failed: {reconnect_exc}")
 
     def get_raw_actions_tensor(self, real_action):
         values = []
         missing = []
+        invalid = []
         for sim_joint in self.SO101_JOINT_ORDER:
             hardware_joint = self.joint_aliases[sim_joint]
             if hardware_joint not in real_action:
                 missing.append(hardware_joint)
                 continue
+            if real_action[hardware_joint] is None:
+                invalid.append(hardware_joint)
+                continue
             values.append(real_action[hardware_joint])
-        if missing:
+        if missing or invalid:
             available = ", ".join(sorted(real_action))
             raise KeyError(
-                f"Missing joint(s) from {self.robot_type} action: {missing}. "
+                f"Missing joint(s) from {self.robot_type} action: {missing}; "
+                f"invalid values: {invalid}. "
                 f"Available joints: {available}"
             )
         return torch.tensor(
