@@ -98,18 +98,8 @@ B601_DM_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        joint_pos={
-            "joint1": 0.0,
-            "joint2": -1.1,
-            "joint3": -0.8,
-            "joint4": 0.6,
-            "joint5": 0.0,
-            "joint6": 0.0,
-            "gripper_joint1": 0.0,
-            "gripper_joint2": 0.0,
-        },
         pos=(-0.05, 0.0, 0),
-        rot=euler_angles_to_quat(np.array([0, 0, -90]), degrees=True),
+        rot=euler_angles_to_quat(np.array([0, 0, 0]), degrees=True),
     ),
     actuators={
         "shoulder_pan": ImplicitActuatorCfg(
