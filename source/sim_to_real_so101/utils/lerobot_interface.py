@@ -311,9 +311,9 @@ class LeRobotSO101Interface:
 
         try:
             action = self.robot.get_action()
-            self._validate_stararm102_action(action)
+            action = self._sanitize_stararm102_action(action)
             self._last_valid_action = dict(action)
-            return action
+            return dict(action)
         except Exception as exc:
             print(f"[WARNING]: Star-Arm read failed ({exc}).")
             self._maybe_reconnect_stararm102()
@@ -325,22 +325,43 @@ class LeRobotSO101Interface:
                 self._last_hold_warning_at = now
             return dict(self._last_valid_action)
 
-        raise RuntimeError("Star-Arm action is unavailable and no previous action exists.")
+        fallback_action = self._neutral_stararm102_action()
+        self._last_valid_action = dict(fallback_action)
+        print("[WARNING]: Using neutral Star-Arm action until valid servo readings arrive.")
+        return fallback_action
 
-    def _validate_stararm102_action(self, action) -> None:
+    def _neutral_stararm102_action(self) -> dict[str, float]:
+        return {
+            self.joint_aliases[sim_joint]: 0.0 for sim_joint in self.SO101_JOINT_ORDER
+        }
+
+    def _sanitize_stararm102_action(self, action) -> dict[str, float]:
         if not isinstance(action, dict):
             raise RuntimeError(f"Star-Arm returned invalid action type: {type(action)}")
 
+        sanitized = {}
+        fallback_action = self._last_valid_action or self._neutral_stararm102_action()
         required_joints = [
             self.joint_aliases[sim_joint] for sim_joint in self.SO101_JOINT_ORDER
         ]
-        missing = [joint for joint in required_joints if joint not in action]
-        invalid = [joint for joint in required_joints if action.get(joint) is None]
+        missing = []
+        invalid = []
+        for joint in required_joints:
+            value = action.get(joint)
+            if joint not in action:
+                missing.append(joint)
+                value = fallback_action[joint]
+            elif value is None:
+                invalid.append(joint)
+                value = fallback_action[joint]
+            sanitized[joint] = value
+
         if missing or invalid:
-            raise RuntimeError(
-                f"Star-Arm returned incomplete action. Missing: {missing}; "
-                f"invalid values: {invalid}"
+            print(
+                "[WARNING]: Star-Arm returned incomplete action; "
+                f"using fallback values. Missing: {missing}; invalid values: {invalid}"
             )
+        return sanitized
 
     def _resolve_serial_port(self) -> str:
         patterns = []
@@ -399,7 +420,7 @@ class LeRobotSO101Interface:
         try:
             self._reconnect_stararm102()
             action = self.robot.get_action()
-            self._validate_stararm102_action(action)
+            action = self._sanitize_stararm102_action(action)
             self._last_valid_action = dict(action)
         except Exception as reconnect_exc:
             print(f"[WARNING]: Star-Arm reconnect failed: {reconnect_exc}")
