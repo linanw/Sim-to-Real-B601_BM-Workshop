@@ -51,7 +51,10 @@ def randomize_robot_color(env,
     with Sdf.ChangeBlock():
         robot = env.scene["robot"]
         material_prim_path = robot.cfg.prim_path + "/Looks/material_a_3d_printed/Shader"
-        material_prim = sim_utils.find_matching_prims(material_prim_path)[0]
+        material_prims = sim_utils.find_matching_prims(material_prim_path)
+        if not material_prims:
+            return
+        material_prim = material_prims[0]
         material_prim.GetAttribute("inputs:diffuse_color_constant").Set(selected_color)
 
 def randomize_mat_rotation(

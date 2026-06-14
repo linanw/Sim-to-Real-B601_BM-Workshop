@@ -42,22 +42,27 @@ from lerobot.utils.visualization_utils import init_rerun, log_rerun_data
 # and inherit from it for each robot type.
 class LeRobotSO101Interface:
 
-    # USD Robot has joint ranges that are not ranging from -100 to 100
+    # B601 sim and hardware limits are not the same normalized space exposed by
+    # LeRobot teleoperators.
     SO101_USD_MAPPING = {
-        "shoulder_pan": {"joint_min": -110, "joint_max": 110},
-        "shoulder_lift": {"joint_min": -100, "joint_max": 100},
-        "elbow_flex": {"joint_min": -100, "joint_max": 90},
-        "wrist_flex": {"joint_min": -95, "joint_max": 95},
-        "wrist_roll": {"joint_min": -160, "joint_max": 160},
-        "gripper": {"joint_min": -10, "joint_max": 100},
+        "shoulder_pan": {"joint_min": -145, "joint_max": 145},
+        "shoulder_lift": {"joint_min": -170, "joint_max": 0},
+        "elbow_flex": {"joint_min": -200, "joint_max": 0},
+        "wrist_flex": {"joint_min": -80, "joint_max": 90},
+        "wrist_yaw": {"joint_min": -90, "joint_max": 90},
+        "wrist_roll": {"joint_min": -90, "joint_max": 90},
+        "gripper": {"joint_min": 0, "joint_max": 100},
     }
+    B601_GRIPPER_MAX_M = 0.0715
 
-    # Joint order is the order of the joints in the USD articulation
+    # Logical LeRobot order. The B601 Isaac articulation expands gripper.pos
+    # into both prismatic finger joints.
     SO101_JOINT_ORDER = [
         "shoulder_pan.pos",
         "shoulder_lift.pos",
         "elbow_flex.pos",
         "wrist_flex.pos",
+        "wrist_yaw.pos",
         "wrist_roll.pos",
         "gripper.pos",
     ]
@@ -84,6 +89,7 @@ class LeRobotSO101Interface:
             "shoulder_lift.pos": "shoulder_lift.pos",
             "elbow_flex.pos": "elbow_flex.pos",
             "wrist_flex.pos": "wrist_flex.pos",
+            "wrist_yaw.pos": "wrist_yaw.pos",
             "wrist_roll.pos": "wrist_roll.pos",
             "gripper.pos": "gripper.pos",
         },
@@ -92,6 +98,7 @@ class LeRobotSO101Interface:
             "shoulder_lift.pos": "Motor_1.pos",
             "elbow_flex.pos": "Motor_2.pos",
             "wrist_flex.pos": "Motor_3.pos",
+            "wrist_yaw.pos": "Motor_4.pos",
             "wrist_roll.pos": "Motor_5.pos",
             "gripper.pos": "gripper.pos",
         },
@@ -100,6 +107,7 @@ class LeRobotSO101Interface:
             "shoulder_lift.pos": "shoulder_lift.pos",
             "elbow_flex.pos": "elbow_flex.pos",
             "wrist_flex.pos": "wrist_flex.pos",
+            "wrist_yaw.pos": "wrist_yaw.pos",
             "wrist_roll.pos": "wrist_roll.pos",
             "gripper.pos": "gripper.pos",
         },
@@ -250,32 +258,37 @@ class LeRobotSO101Interface:
         normalized = torch.zeros_like(raw_values)
         normalized[:-1] = (
             raw_values[:-1] + 100
-        ) / 200.0  # first 5 joints: -100-100 -> 0-1
+        ) / 200.0  # arm joints: -100-100 -> 0-1
         normalized[-1] = raw_values[-1] / 100.0  # gripper: 0-100 -> 0-1
 
-        # Map to joint ranges (degrees)
+        # Map arm joints to B601 joint ranges (degrees) and convert to radians.
         mapped_deg = self.joint_mins + normalized * (self.joint_maxs - self.joint_mins)
+        arm_actions = mapped_deg[:-1] * torch.pi / 180
 
-        # Convert to radians
-        return mapped_deg * torch.pi / 180
+        gripper_action = normalized[-1] * self.B601_GRIPPER_MAX_M
+        return torch.cat([arm_actions, gripper_action.repeat(2).reshape(2)])
 
     def get_raw_actions_from_radians(self, raw_values):
-        # Convert from radians to degrees
-        mapped_deg = raw_values * 180 / torch.pi
+        arm_values = raw_values[:6]
+        gripper_values = raw_values[6:]
+
+        # Convert from radians to degrees.
+        mapped_deg = arm_values * 180 / torch.pi
 
         # Reverse the joint range mapping
-        normalized = (mapped_deg - self.joint_mins) / (
-            self.joint_maxs - self.joint_mins
+        normalized = (mapped_deg - self.joint_mins[:-1]) / (
+            self.joint_maxs[:-1] - self.joint_mins[:-1]
         )
 
         # Reverse the normalization
-        raw_degrees = torch.zeros_like(normalized)
-        raw_degrees[:-1] = (
-            normalized[:-1] * 200.0 - 100
-        )  # first 5 joints: 0-1 -> -100-100
-        raw_degrees[-1] = normalized[-1] * 100.0  # gripper: 0-1 -> 0-100
+        raw_degrees = normalized * 200.0 - 100
+        gripper_raw = (
+            gripper_values.mean().reshape(1) / self.B601_GRIPPER_MAX_M * 100.0
+            if gripper_values.numel() > 0
+            else torch.zeros(1, dtype=raw_values.dtype, device=raw_values.device)
+        )
 
-        return raw_degrees
+        return torch.cat([raw_degrees, gripper_raw])
 
     def make_policy(
         self,
@@ -336,8 +349,6 @@ class LeRobotSO101Interface:
         sim_observation = {}
         for index, joint_name in enumerate(self.SO101_JOINT_ORDER):
             sim_observation[self.joint_aliases[joint_name]] = state_np[index]
-        if self.robot_type == "seeed_b601_dm":
-            sim_observation["wrist_yaw.pos"] = 0.0
 
         for camera in self.cameras.keys():
             img: torch.Tensor = (
@@ -495,8 +506,8 @@ class GR00TRemotePolicy:
 
         # Joint state (arm + gripper, matching GR00T convention)
         model_obs["state"] = {
-            "single_arm": state_np[:5],
-            "gripper": state_np[5:6],
+            "single_arm": state_np[:6],
+            "gripper": state_np[6:7],
         }
 
         # Language instruction
@@ -531,9 +542,12 @@ class GR00TRemotePolicy:
         joint_order = self._iface.SO101_JOINT_ORDER
         actions_list = []
         for t in range(horizon):
-            single_arm = action_chunk["single_arm"][0][t]  # (5,)
+            single_arm = action_chunk["single_arm"][0][t]
             gripper = action_chunk["gripper"][0][t]          # (1,)
-            full = np.concatenate([single_arm, gripper], axis=0)  # (6,)
+            full = np.zeros(len(joint_order), dtype=np.float32)
+            arm_count = min(len(joint_order) - 1, single_arm.shape[0])
+            full[:arm_count] = single_arm[:arm_count]
+            full[-1:] = gripper
             actions_list.append(
                 {name: float(full[i]) for i, name in enumerate(joint_order)}
             )

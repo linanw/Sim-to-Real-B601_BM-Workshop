@@ -65,6 +65,7 @@ class LeRobotRecorder:
             "shoulder_lift.pos",
             "elbow_flex.pos",
             "wrist_flex.pos",
+            "wrist_yaw.pos",
             "wrist_roll.pos",
             "gripper.pos",
         ]
