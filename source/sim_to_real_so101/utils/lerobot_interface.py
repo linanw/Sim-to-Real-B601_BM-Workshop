@@ -461,6 +461,27 @@ class LeRobotSO101Interface:
         for joint_name, offset in zip(self.joint_names[:6], self.joint_alignment_offsets[:6]):
             print(f"        {joint_name}: {offset.item():.2f} deg")
 
+    def format_alignment_debug(self, raw_values, sim_joint_positions=None) -> str:
+        mapped_deg = self.get_mapped_degrees_vectorized(raw_values)
+        sim_deg = None
+        if sim_joint_positions is not None:
+            sim_deg = sim_joint_positions[:6].to(self.device) * 180 / torch.pi
+
+        lines = [
+            "[ALIGN]: joint             raw    target_deg    sim_deg   scale  offset_deg",
+        ]
+        for index, joint_name in enumerate(self.joint_names[:6]):
+            sim_value = "--" if sim_deg is None else f"{sim_deg[index].item():8.2f}"
+            lines.append(
+                f"[ALIGN]: {joint_name:<14}"
+                f"{raw_values[index].item():8.2f}"
+                f"{mapped_deg[index].item():12.2f}"
+                f"{sim_value:>10}"
+                f"{self.joint_alignment_scales[index].item():8.2f}"
+                f"{self.joint_alignment_offsets[index].item():12.2f}"
+            )
+        return "\n".join(lines)
+
     def get_mapped_actions_vectorized(self, raw_values):
         mapped_deg = self.get_mapped_degrees_vectorized(raw_values)
 

@@ -90,6 +90,12 @@ parser.add_argument(
     help="Offset the current leader pose to the initial simulated B601 pose at startup.",
 )
 parser.add_argument(
+    "--debug_alignment",
+    action=argparse.BooleanOptionalAction,
+    default=env_flag("TELEOP_DEBUG_ALIGNMENT", False),
+    help="Print leader raw values, mapped targets, sim joint positions, and alignment gains.",
+)
+parser.add_argument(
     "--repo_id", type=str, default=None, help="Repository ID to store the dataset."
 )
 parser.add_argument(
@@ -210,6 +216,7 @@ def main():
 
     # Allocate action tensor
     actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+    last_alignment_debug_t = 0.0
 
     # simulate environment
 
@@ -243,13 +250,23 @@ def main():
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
-            real_action = robot_iface.get_action()
+            leader_action = robot_iface.get_action()
             real_action, mapped_action = robot_iface.real_to_sim_obs_processor(
-                real_action
+                leader_action
             )
             actions[:] = mapped_action
 
             obs, _, _, _, _ = env.step(actions)
+            if args_cli.debug_alignment:
+                now = time.monotonic()
+                if now - last_alignment_debug_t >= 1.0:
+                    sim_joint_pos = None
+                    try:
+                        sim_joint_pos = obs["policy"]["joint_pos_obs"][0]
+                    except KeyError:
+                        pass
+                    print(robot_iface.format_alignment_debug(real_action, sim_joint_pos))
+                    last_alignment_debug_t = now
 
             if keyboard_control.reset_world:
                 keyboard_control.reset_world = False
