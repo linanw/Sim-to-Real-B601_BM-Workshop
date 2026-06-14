@@ -21,6 +21,14 @@ guard_known_bad_isaacsim_driver()
 
 from isaaclab.app import AppLauncher
 
+
+def env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Isaac Lab SO-101 Teleop agent.")
 parser.add_argument(
@@ -68,6 +76,18 @@ parser.add_argument(
     type=str,
     default=os.getenv("TELEOP_JOINT_ALIASES", None),
     help="JSON mapping from sim joint names to leader joint names.",
+)
+parser.add_argument(
+    "--leader_alignment",
+    type=str,
+    default=os.getenv("TELEOP_ALIGNMENT", None),
+    help="Path to a JSON file with leader-to-sim joint alignment offsets and scales.",
+)
+parser.add_argument(
+    "--align_on_start",
+    action=argparse.BooleanOptionalAction,
+    default=env_flag("TELEOP_ALIGN_ON_START", False),
+    help="Offset the current leader pose to the initial simulated B601 pose at startup.",
 )
 parser.add_argument(
     "--repo_id", type=str, default=None, help="Repository ID to store the dataset."
@@ -149,7 +169,7 @@ def main():
     print(f"[INFO]: Click 'S' to start/stop recording; 'R' will also stop recording")
 
     # reset environment
-    env.reset()
+    reset_obs, _ = env.reset()
 
     # cameras
     cameras = {}
@@ -174,9 +194,19 @@ def main():
         robot_type=args_cli.leader_type,
         joint_aliases=leader_joint_aliases,
         port_glob=args_cli.port_glob,
+        alignment_path=args_cli.leader_alignment,
     )
     robot_iface.init_device()
     robot_iface.connect()
+    if args_cli.align_on_start:
+        try:
+            real_action = robot_iface.get_action()
+            robot_iface.align_current_action_to_sim(
+                real_action,
+                reset_obs["policy"]["joint_pos_obs"][0],
+            )
+        except KeyError:
+            print("[WARNING]: Startup alignment skipped; joint_pos_obs was not found.")
 
     # Allocate action tensor
     actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)

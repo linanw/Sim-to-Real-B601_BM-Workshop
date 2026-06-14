@@ -17,6 +17,7 @@ import os
 import time
 from collections import deque
 from glob import glob
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -132,6 +133,7 @@ class LeRobotSO101Interface:
         can_adapter: str = "damiao",
         use_degrees: bool = False,
         port_glob: str | None = None,
+        alignment_path: str | None = None,
     ):
 
         self.port = port
@@ -154,6 +156,7 @@ class LeRobotSO101Interface:
         }
         self.can_adapter = can_adapter
         self.use_degrees = use_degrees
+        self.alignment_path = alignment_path
 
         self.joint_names = [joint.split(".")[0] for joint in self.SO101_JOINT_ORDER]
         self.joint_mins = torch.tensor(
@@ -166,6 +169,9 @@ class LeRobotSO101Interface:
             dtype=torch.float32,
             device=self.device,
         )
+        self.joint_alignment_scales, self.joint_alignment_offsets = (
+            self._load_leader_alignment()
+        )
 
     @classmethod
     def _canonical_robot_type(cls, robot_type: str) -> str:
@@ -174,6 +180,32 @@ class LeRobotSO101Interface:
             supported = ", ".join(sorted(cls.ROBOT_TYPE_ALIASES))
             raise ValueError(f"Unsupported robot_type '{robot_type}'. Supported values: {supported}")
         return canonical
+
+    def _load_leader_alignment(self) -> tuple[torch.Tensor, torch.Tensor]:
+        scales = torch.ones(len(self.SO101_JOINT_ORDER), dtype=torch.float32, device=self.device)
+        offsets = torch.zeros(len(self.SO101_JOINT_ORDER), dtype=torch.float32, device=self.device)
+
+        if not self.alignment_path:
+            return scales, offsets
+
+        alignment_path = Path(self.alignment_path).expanduser()
+        if not alignment_path.is_file():
+            raise FileNotFoundError(f"Leader alignment file not found: {alignment_path}")
+
+        with alignment_path.open() as f:
+            alignment = json.load(f)
+
+        joints = alignment.get("joints", alignment)
+        for index, sim_joint in enumerate(self.SO101_JOINT_ORDER):
+            joint_name = sim_joint.removesuffix(".pos")
+            joint_alignment = joints.get(sim_joint, joints.get(joint_name, {}))
+            scales[index] = float(joint_alignment.get("scale", 1.0))
+            if scales[index] == 0:
+                raise ValueError(f"Leader alignment scale cannot be zero for {sim_joint}")
+            offsets[index] = float(joint_alignment.get("offset_deg", 0.0))
+
+        print(f"[INFO]: Loaded leader alignment from {alignment_path}")
+        return scales, offsets
 
     def make_cameras_cfg(self):
         cameras = {}
@@ -398,17 +430,45 @@ class LeRobotSO101Interface:
             device=self.device,
         )
 
-    def get_mapped_actions_vectorized(self, raw_values):
+    def get_mapped_degrees_vectorized(self, raw_values):
         normalized = torch.zeros_like(raw_values)
         normalized[:-1] = (
             raw_values[:-1] + 100
         ) / 200.0  # arm joints: -100-100 -> 0-1
         normalized[-1] = raw_values[-1] / 100.0  # gripper: 0-100 -> 0-1
 
-        # Map arm joints to B601 joint ranges (degrees) and convert to radians.
         mapped_deg = self.joint_mins + normalized * (self.joint_maxs - self.joint_mins)
+        joint_centers = (self.joint_mins + self.joint_maxs) / 2.0
+        mapped_deg = (
+            joint_centers
+            + self.joint_alignment_scales * (mapped_deg - joint_centers)
+            + self.joint_alignment_offsets
+        )
+        mapped_deg = torch.minimum(
+            torch.maximum(mapped_deg, self.joint_mins),
+            self.joint_maxs,
+        )
+        return mapped_deg
+
+    def align_current_action_to_sim(self, real_action, sim_joint_positions):
+        raw_values = self.get_raw_actions_tensor(real_action)
+        mapped_deg = self.get_mapped_degrees_vectorized(raw_values)
+        target_deg = sim_joint_positions[:6].to(self.device) * 180 / torch.pi
+        offset_delta = target_deg - mapped_deg[:6]
+        self.joint_alignment_offsets[:6] += offset_delta
+
+        print("[INFO]: Applied startup leader alignment offsets:")
+        for joint_name, offset in zip(self.joint_names[:6], self.joint_alignment_offsets[:6]):
+            print(f"        {joint_name}: {offset.item():.2f} deg")
+
+    def get_mapped_actions_vectorized(self, raw_values):
+        mapped_deg = self.get_mapped_degrees_vectorized(raw_values)
+
+        # Map arm joints to B601 joint ranges (degrees) and convert to radians.
         arm_actions = mapped_deg[:-1] * torch.pi / 180
 
+        normalized = torch.zeros_like(raw_values)
+        normalized[-1] = raw_values[-1] / 100.0  # gripper: 0-100 -> 0-1
         gripper_action = normalized[-1] * self.B601_GRIPPER_MAX_M
         return torch.cat([arm_actions, gripper_action.repeat(2).reshape(2)])
 
@@ -418,6 +478,16 @@ class LeRobotSO101Interface:
 
         # Convert from radians to degrees.
         mapped_deg = arm_values * 180 / torch.pi
+        joint_centers = (self.joint_mins[:-1] + self.joint_maxs[:-1]) / 2.0
+        mapped_deg = (
+            joint_centers
+            + (
+                mapped_deg
+                - joint_centers
+                - self.joint_alignment_offsets[:-1]
+            )
+            / self.joint_alignment_scales[:-1]
+        )
 
         # Reverse the joint range mapping
         normalized = (mapped_deg - self.joint_mins[:-1]) / (

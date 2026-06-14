@@ -1,6 +1,8 @@
 export LEROBOT_CALIB=.cache/huggingface/lerobot/calibration
 export TELEOP_PORT=/dev/ttyUSB0
 export TELEOP_PORT_GLOB=/dev/serial/by-id/*
+export TELEOP_ALIGNMENT=/workspace/Sim-to-Real-SO-101-Workshop/config/stararm102_b601_alignment.json
+export TELEOP_ALIGN_ON_START=1
 export ROBOT_PORT=/dev/ttyACM0
 export TELEOP_TYPE=stararm102
 export ROBOT_TYPE=seeed_b601_dm_follower

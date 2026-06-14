@@ -1,0 +1,32 @@
+{
+  "joints": {
+    "shoulder_pan": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "shoulder_lift": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "elbow_flex": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "wrist_flex": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "wrist_yaw": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "wrist_roll": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    },
+    "gripper": {
+      "scale": 1.0,
+      "offset_deg": 0.0
+    }
+  }
+}
