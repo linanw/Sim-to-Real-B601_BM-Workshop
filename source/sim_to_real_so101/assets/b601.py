@@ -69,6 +69,14 @@ def _convert_b601_urdf_to_usd() -> str:
             self_collision=False,
             collision_from_visuals=False,
             collider_type="convex_hull",
+            joint_drive=UrdfConverterCfg.JointDriveCfg(
+                target_type="position",
+                drive_type="force",
+                gains=UrdfConverterCfg.JointDriveCfg.PDGainsCfg(
+                    stiffness=100.0,
+                    damping=10.0,
+                ),
+            ),
         )
     )
     return converter.usd_path
