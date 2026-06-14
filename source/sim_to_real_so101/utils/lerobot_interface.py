@@ -12,11 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 from collections import deque
 
 import numpy as np
 import torch
 import uuid
+from lerobot.utils.constants import HF_LEROBOT_CALIBRATION, TELEOPERATORS
 
 from lerobot.teleoperators.so101_leader import SO101LeaderConfig
 from lerobot.robots.so101_follower import SO101FollowerConfig
@@ -184,6 +186,7 @@ class LeRobotSO101Interface:
             if self.robot_type == "so101":
                 return SO101LeaderConfig(port=self.port, id=self.id)
             if self.robot_type == "stararm102":
+                self._normalize_stararm102_calibration()
                 try:
                     from lerobot_teleoperator_stararm102 import Stararm102LeaderConfig
                 except ImportError as exc:
@@ -219,6 +222,32 @@ class LeRobotSO101Interface:
                     cameras=cameras,
                 )
             raise ValueError(f"Robot type '{self.robot_type}' cannot be used as a follower")
+
+    def _normalize_stararm102_calibration(self) -> None:
+        calibration_path = (
+            HF_LEROBOT_CALIBRATION
+            / TELEOPERATORS
+            / "stararm102_leader"
+            / f"{self.id}.json"
+        )
+        if not calibration_path.is_file():
+            return
+
+        with calibration_path.open() as f:
+            calibration = json.load(f)
+
+        changed = False
+        for motor_calibration in calibration.values():
+            for field in ("id", "drive_mode", "homing_offset", "range_min", "range_max"):
+                value = motor_calibration.get(field)
+                if isinstance(value, float):
+                    motor_calibration[field] = int(round(value))
+                    changed = True
+
+        if changed:
+            with calibration_path.open("w") as f:
+                json.dump(calibration, f, indent=4)
+                f.write("\n")
 
     def init_device(self, visualize: bool = False):
         self.cfg = self.make_cfg()
