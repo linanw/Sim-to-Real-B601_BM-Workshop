@@ -1,11 +1,11 @@
 {
   "joints": {
     "shoulder_pan": {
-      "scale": 1.0,
+      "scale": -1.0,
       "offset_deg": 0.0
     },
     "shoulder_lift": {
-      "scale": 1.0,
+      "scale": -1.0,
       "offset_deg": 0.0
     },
     "elbow_flex": {
