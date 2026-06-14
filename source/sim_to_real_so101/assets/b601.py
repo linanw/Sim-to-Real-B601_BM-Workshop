@@ -61,10 +61,10 @@ def _convert_b601_urdf_to_usd() -> str:
         UrdfConverterCfg(
             asset_path=urdf_path.as_posix(),
             usd_dir=b601_generated_usd_root.as_posix(),
-            usd_file_name="reBot_B601_DM_with_gripper.usd",
+            usd_file_name="reBot_B601_DM_with_gripper_preserve_links.usd",
             fix_base=True,
             root_link_name="base_link",
-            merge_fixed_joints=True,
+            merge_fixed_joints=False,
             make_instanceable=False,
             self_collision=False,
             collision_from_visuals=False,
