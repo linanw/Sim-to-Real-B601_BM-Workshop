@@ -35,15 +35,19 @@ RUN $PYTHON -m pip install -c /tmp/constraints.txt \
     "jsonlines>=4.0.0,<5.0.0" \
     "pynput>=1.7.7,<1.9.0" \
     "pyserial>=3.5,<4.0" \
-    "python-can>=4.2.0,<5.0.0" \
-    "motorbridge>=0.4.4" \
-    "lerobot-motor-starai" \
-    "fashionstar-uart-sdk>=1.3.6" \
     "wandb>=0.20.0,<0.22.0" \
     "torchcodec>=0.2.1,<0.6.0" \
     "draccus==0.10.0" \
     "deepdiff>=7.0.1,<9.0.0" \
     "feetech-servo-sdk>=1.0.0,<2.0.0"
+
+# Hardware plugins are installed separately to avoid re-solving the full
+# LeRobot dependency graph in the large Isaac/LeRobot transaction above.
+RUN $PYTHON -m pip install --no-deps \
+    "python-can==4.6.1" \
+    "motorbridge==0.4.6" \
+    "fashionstar-uart-sdk==1.3.12" \
+    "lerobot-motor-starai==0.0.6"
 
 RUN curl --proto "=https" --tlsv1.2 -sSf -L -o /tmp/ffmpeg.tar.xz \
     https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-lgpl-shared-7.1.tar.xz && \
