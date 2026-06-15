@@ -173,6 +173,7 @@ class LeRobotSO101Interface:
         self.joint_alignment_scales, self.joint_alignment_offsets = (
             self._load_leader_alignment()
         )
+        self.joint_alignment_file_offsets = self.joint_alignment_offsets.clone()
 
     @classmethod
     def _canonical_robot_type(cls, robot_type: str) -> str:
@@ -480,8 +481,9 @@ class LeRobotSO101Interface:
         offset_delta = target_deg - mapped_deg[:6]
         self.joint_alignment_offsets[:6] += offset_delta
 
-        print("[INFO]: Applied startup leader alignment offsets:")
-        for joint_name, offset in zip(self.joint_names[:6], self.joint_alignment_offsets[:6]):
+        print("[INFO]: Applied startup leader alignment offsets (runtime only, JSON unchanged):")
+        runtime_offsets = self.joint_alignment_offsets[:6] - self.joint_alignment_file_offsets[:6]
+        for joint_name, offset in zip(self.joint_names[:6], runtime_offsets):
             print(f"        {joint_name}: {offset.item():.2f} deg")
 
     def format_alignment_debug(self, raw_values, sim_joint_positions=None) -> str:
@@ -491,17 +493,22 @@ class LeRobotSO101Interface:
             sim_deg = sim_joint_positions[:6].to(self.device) * 180 / torch.pi
 
         lines = [
-            "[ALIGN]: joint             raw    target_deg    sim_deg   scale  offset_deg",
+            "[ALIGN]: joint             raw    target_deg    sim_deg   scale  file_offset  runtime_offset",
         ]
         for index, joint_name in enumerate(self.joint_names[:6]):
             sim_value = "--" if sim_deg is None else f"{sim_deg[index].item():8.2f}"
+            runtime_offset = (
+                self.joint_alignment_offsets[index]
+                - self.joint_alignment_file_offsets[index]
+            )
             lines.append(
                 f"[ALIGN]: {joint_name:<14}"
                 f"{raw_values[index].item():8.2f}"
                 f"{mapped_deg[index].item():12.2f}"
                 f"{sim_value:>10}"
                 f"{self.joint_alignment_scales[index].item():8.2f}"
-                f"{self.joint_alignment_offsets[index].item():12.2f}"
+                f"{self.joint_alignment_file_offsets[index].item():13.2f}"
+                f"{runtime_offset.item():16.2f}"
             )
         return "\n".join(lines)
 
