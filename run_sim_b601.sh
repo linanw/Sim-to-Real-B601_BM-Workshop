@@ -17,4 +17,4 @@ docker run --name teleop -it --privileged --gpus all -e "ACCEPT_EULA=Y" --rm --n
    -v ~/Sim-to-Real-SO-101-Workshop/docker/env:/root/env \
    -v ~/Sim-to-Real-SO-101-Workshop:/workspace/Sim-to-Real-SO-101-Workshop \
    teleop-docker:latest \
-   lerobot_agent --task Lerobot-So101-Teleop-Vials-To-Rack-DR
+   lerobot_agent --task Lerobot-B601-Teleop-Vials-To-Rack-DR
