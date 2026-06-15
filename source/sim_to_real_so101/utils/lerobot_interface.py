@@ -80,6 +80,7 @@ class LeRobotSO101Interface:
         "stararm102": "stararm102",
         "stararm102_leader": "stararm102",
         "lerobot_teleoperator_stararm102": "stararm102",
+        "sim_to_real_stararm102": "stararm102",
         "b601": "seeed_b601_dm",
         "b601_dm": "seeed_b601_dm",
         "seeed_b601_dm": "seeed_b601_dm",
@@ -231,15 +232,16 @@ class LeRobotSO101Interface:
                 self._normalize_stararm102_calibration()
                 self.port = self._resolve_serial_port()
                 try:
-                    from lerobot_teleoperator_stararm102 import Stararm102LeaderConfig
+                    from sim_to_real_so101.adapters.stararm102 import (
+                        SimToRealStararm102LeaderConfig,
+                    )
                 except ImportError as exc:
                     raise ImportError(
-                        "Star-Arm-102 support is not installed. Install "
-                        "rebot/Star-Arm-102/Lerobot/lerobot-teleoperator-stararm102 "
-                        "inside the sim container."
+                        "Sim-to-real Star-Arm-102 adapter is unavailable. Ensure "
+                        "sim_to_real_so101 and the vendor Star-Arm package are installed."
                     ) from exc
 
-                return Stararm102LeaderConfig(
+                return SimToRealStararm102LeaderConfig(
                     port=self.port,
                     id=self.id,
                     use_degrees=self.use_degrees,
