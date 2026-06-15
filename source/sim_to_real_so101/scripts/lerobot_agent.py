@@ -173,6 +173,7 @@ def main():
     print(f"[INFO]: Gym action space: {env.action_space}")
     print(f"[INFO]: Click 'R' to reset the world")
     print(f"[INFO]: Click 'S' to start/stop recording; 'R' will also stop recording")
+    print(f"[INFO]: Click 'L' to reload leader alignment JSON")
 
     # reset environment
     reset_obs, _ = env.reset()
@@ -272,6 +273,13 @@ def main():
                 keyboard_control.reset_world = False
                 env.reset()
                 continue
+
+            if keyboard_control.reload_alignment:
+                keyboard_control.reload_alignment = False
+                try:
+                    robot_iface.reload_leader_alignment()
+                except Exception as exc:
+                    print(f"[WARNING]: Leader alignment reload failed: {exc}")
 
             if recording_mode and keyboard_control.recording:
                 visual_obs = obs.get("visual", None)

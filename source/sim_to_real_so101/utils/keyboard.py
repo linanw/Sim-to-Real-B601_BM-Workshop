@@ -27,6 +27,7 @@ class KeyboardControl:
     def __init__(self):
         self.reset_world = False
         self.recording = False
+        self.reload_alignment = False
 
         # Get the window to register keyboard callbacks
         self._window = omni.appwindow.get_default_app_window()
@@ -61,6 +62,11 @@ class KeyboardControl:
                 if self.recording:
                     self.cancel_recording()
                     return True
+
+            if event.input.name == "L":
+                self.reload_alignment = True
+                print("[INFO]: Reload leader alignment...")
+                return True
 
         return False
 

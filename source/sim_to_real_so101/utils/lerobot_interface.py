@@ -209,6 +209,18 @@ class LeRobotSO101Interface:
         print(f"[INFO]: Loaded leader alignment from {alignment_path}")
         return scales, offsets
 
+    def reload_leader_alignment(self) -> None:
+        if not self.alignment_path:
+            print("[WARNING]: No leader alignment file configured; reload skipped.")
+            return
+
+        runtime_offsets = self.joint_alignment_offsets - self.joint_alignment_file_offsets
+        scales, file_offsets = self._load_leader_alignment()
+        self.joint_alignment_scales = scales
+        self.joint_alignment_file_offsets = file_offsets
+        self.joint_alignment_offsets = file_offsets + runtime_offsets
+        print("[INFO]: Reloaded leader alignment. Runtime offsets were preserved.")
+
     def make_cameras_cfg(self):
         cameras = {}
         # need to rename cameras to match policy/feature config
