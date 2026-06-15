@@ -95,3 +95,38 @@ gym.register(
     },
 )
 
+gym.register(
+    id="Lerobot-B601-Teleop-Vials-To-Rack",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.b601_vials_to_rack_env_cfg:B601VialsToRackEnvCfg",
+    },
+)
+
+gym.register(
+    id="Lerobot-B601-Teleop-Vials-To-Rack-DR",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.b601_vials_to_rack_env_cfg:B601VialsToRackDREnvCfg",
+    },
+)
+
+gym.register(
+    id="Lerobot-B601-Teleop-Vials-To-Rack-Eval",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.b601_vials_to_rack_env_cfg:B601VialsToRackEvalEnvCfg",
+    },
+)
+
+gym.register(
+    id="Lerobot-B601-Teleop-Vials-To-Rack-DR-Eval",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.b601_vials_to_rack_env_cfg:B601VialsToRackEvalDREnvCfg",
+    },
+)

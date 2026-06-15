@@ -26,7 +26,7 @@ from isaaclab.sensors import FrameTransformerCfg, OffsetCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
-from sim_to_real_so101.assets.b601 import B601_DM_CFG, B601_JOINT_NAMES
+from sim_to_real_so101.assets.so101 import SO101_CFG
 
 from sim_to_real_so101 import assets
 from sim_to_real_so101.mdp import (
@@ -48,14 +48,14 @@ class LerobotSo101BaseSceneCfg(InteractiveSceneCfg):
     num_envs = 1
 
     # robot
-    robot: ArticulationCfg = B601_DM_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = SO101_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base_link",
+        prim_path="{ENV_REGEX_NS}/Robot/base",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/gripper_link", name="gripper"
+                prim_path="{ENV_REGEX_NS}/Robot/gripper", name="gripper"
             ),  # no offset for ik convert
         ],
     )
@@ -70,7 +70,7 @@ class ActionsCfg:
 
     joint_positions = JointPositionActionCfg(
         asset_name="robot",
-        joint_names=B601_JOINT_NAMES,
+        joint_names=["Rotation", "Pitch", "Elbow", "Wrist_Pitch", "Wrist_Roll", "Jaw"],
         scale=1,
         use_default_offset=False,
     )
@@ -115,7 +115,14 @@ class EventCfg:
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=B601_JOINT_NAMES,
+                joint_names=[
+                    "Rotation",
+                    "Pitch",
+                    "Elbow",
+                    "Wrist_Pitch",
+                    "Wrist_Roll",
+                    "Jaw",
+                ],
             ),
             "position_range": (0, 0),
             "velocity_range": (0, 0),

@@ -29,7 +29,7 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 
 from sim_to_real_so101 import assets
-from sim_to_real_so101.assets.b601 import B601_DM_CONTACT_GRASP_CFG
+from sim_to_real_so101.assets.so101 import S0101_CONTACT_GRASP_CFG
 from sim_to_real_so101.mdp import (
     reset_vials_rack,
     randomize_sky_light,
@@ -79,7 +79,7 @@ VIAL_SPAWN_Z = 0.05
 @configclass
 class VialsToRackSceneCfg(SO101TaskSceneCfg):
     # Override robot with contact sensors enabled
-    robot: ArticulationCfg = B601_DM_CONTACT_GRASP_CFG.replace(
+    robot: ArticulationCfg = S0101_CONTACT_GRASP_CFG.replace(
         prim_path="{ENV_REGEX_NS}/Robot"
     )
 
@@ -104,7 +104,7 @@ class VialsToRackSceneCfg(SO101TaskSceneCfg):
 
     # Contact sensor on gripper jaw to detect vial grasping
     contact_grasp = ContactSensorCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/gripper_left",
+        prim_path="{ENV_REGEX_NS}/Robot/jaw",
         update_period=0.0,
         history_length=1,
         debug_vis=False,

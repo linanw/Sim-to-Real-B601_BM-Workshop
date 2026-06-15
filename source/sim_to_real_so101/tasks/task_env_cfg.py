@@ -104,8 +104,8 @@ class SO101TaskSceneCfg(LerobotSo101BaseSceneCfg):
 
     # Camera
     camera_ego = camera_object.replace()
-    camera_ego.prim_path = "{ENV_REGEX_NS}/Robot/gripper_link/gripper_cam"
-    camera_ego.offset.pos = (0.0, 0.055, -0.06)
+    camera_ego.prim_path = "{ENV_REGEX_NS}/Robot/gripper/gripper_cam"
+    camera_ego.offset.pos = (-0.005, 0.06, -0.062)
     camera_ego.offset.rot = euler_angles_to_quat(np.array([-45, 0, 0]), degrees=True)
 
     camera_external_D455 = camera_object.replace()
