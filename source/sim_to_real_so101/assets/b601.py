@@ -93,7 +93,7 @@ B601_DM_CFG = ArticulationCfg(
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
             solver_position_iteration_count=32,
-            solver_velocity_iteration_count=1,
+            solver_velocity_iteration_count=4,
             fix_root_link=True,
         ),
     ),
@@ -140,9 +140,9 @@ B601_DM_CFG = ArticulationCfg(
         ),
         "gripper": ImplicitActuatorCfg(
             joint_names_expr=["gripper_joint1", "gripper_joint2"],
-            effort_limit_sim=100,
-            stiffness=80,
-            damping=2.0,
+            effort_limit_sim=500,
+            stiffness=1000,
+            damping=40.0,
         ),
     },
 )
