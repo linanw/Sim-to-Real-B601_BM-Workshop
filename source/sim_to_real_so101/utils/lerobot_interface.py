@@ -501,14 +501,24 @@ class LeRobotSO101Interface:
     def format_alignment_debug(self, raw_values, sim_joint_positions=None) -> str:
         mapped_deg = self.get_mapped_degrees_vectorized(raw_values)
         sim_deg = None
+        sim_gripper_m = None
         if sim_joint_positions is not None:
             sim_deg = sim_joint_positions[:6].to(self.device) * 180 / torch.pi
+            if sim_joint_positions.numel() > 6:
+                sim_gripper_m = sim_joint_positions[6:].to(self.device).mean()
 
         lines = [
-            "[ALIGN]: joint             raw    target_deg    sim_deg   scale  file_offset  runtime_offset",
+            "[ALIGN]: joint             raw       target          sim   unit   scale  file_offset  runtime_offset",
         ]
-        for index, joint_name in enumerate(self.joint_names[:6]):
-            sim_value = "--" if sim_deg is None else f"{sim_deg[index].item():8.2f}"
+        for index, joint_name in enumerate(self.joint_names):
+            if joint_name == "gripper":
+                target_value = mapped_deg[index].item()
+                sim_value = "--" if sim_gripper_m is None else f"{sim_gripper_m.item():8.4f}"
+                unit = "pct/m"
+            else:
+                target_value = mapped_deg[index].item()
+                sim_value = "--" if sim_deg is None else f"{sim_deg[index].item():8.2f}"
+                unit = "deg"
             runtime_offset = (
                 self.joint_alignment_offsets[index]
                 - self.joint_alignment_file_offsets[index]
@@ -516,8 +526,9 @@ class LeRobotSO101Interface:
             lines.append(
                 f"[ALIGN]: {joint_name:<14}"
                 f"{raw_values[index].item():8.2f}"
-                f"{mapped_deg[index].item():12.2f}"
+                f"{target_value:13.2f}"
                 f"{sim_value:>10}"
+                f"{unit:>7}"
                 f"{self.joint_alignment_scales[index].item():8.2f}"
                 f"{self.joint_alignment_file_offsets[index].item():13.2f}"
                 f"{runtime_offset.item():16.2f}"
